@@ -36,3 +36,6 @@ Thumbs.db
 
 # Test files
 test.py
+
+# Hugging Face model cache
+model_cache/

@@ -5,6 +5,8 @@ from PIL import Image
 import cv2
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing import image
+from huggingface_hub import hf_hub_download
+import os
 
 # ============ CONFIGURATION ============
 st.set_page_config(
@@ -86,11 +88,49 @@ CLASS_INFO = {
 
 IMG_SIZE = 224
 
+# Hugging Face Model Configuration
+HF_REPO_ID = "mahnoor-2722/skin-lesion-classifier"
+HF_MODEL_FILENAME = "efficientnetb0_8class_best.h5"
+LOCAL_MODEL_PATH = 'models/efficientnetb0_8class_best.h5'
+
 # ============ MODEL LOADING ============
 @st.cache_resource
 def load_skin_model():
-    model = load_model('models/efficientnetb0_8class_best.h5')
-    return model
+    """
+    Load the trained EfficientNetB0 model.
+    
+    Strategy:
+    1. First try loading from local file (fast, offline)
+    2. If not found, download from Hugging Face Hub
+    3. Cache the model for subsequent runs
+    """
+    # Strategy 1: Try local file first
+    if os.path.exists(LOCAL_MODEL_PATH):
+        try:
+            model = load_model(LOCAL_MODEL_PATH)
+            return model
+        except Exception as e:
+            st.warning(f"⚠️ Local model failed to load: {str(e)}")
+    
+    # Strategy 2: Download from Hugging Face Hub
+    try:
+        with st.spinner("🔄 Downloading model from Hugging Face Hub (first time only)..."):
+            st.info(f"📥 Fetching model from: `{HF_REPO_ID}`")
+            
+            model_path = hf_hub_download(
+                repo_id=HF_REPO_ID,
+                filename=HF_MODEL_FILENAME,
+                cache_dir="./model_cache"
+            )
+            
+            st.success("✅ Model downloaded successfully!")
+            model = load_model(model_path)
+            return model
+            
+    except Exception as e:
+        st.error(f"❌ Failed to load model from Hugging Face: {str(e)}")
+        st.error("Please check your internet connection or try again later.")
+        st.stop()
 
 # ============ GRAD-CAM ============
 def make_gradcam_heatmap(img_array, model, last_conv_layer_name='top_conv'):
@@ -153,6 +193,13 @@ with st.sidebar:
         info = CLASS_INFO[cls]
         st.markdown(f"**{info['icon']} {cls}**")
         st.caption(f"{info['description']}")
+    
+    st.markdown("---")
+    st.header("🔗 Resources")
+    st.markdown("""
+    - 🤗 [Model on Hugging Face](https://huggingface.co/mahnoor-2722/skin-lesion-classifier)
+    - 💻 [GitHub Repository](https://github.com/mahnoor-2722/skin-lesion-classification)
+    """)
     
     st.markdown("---")
     st.header("⚠️ Medical Disclaimer")
@@ -291,3 +338,4 @@ with col_f3:
 
 st.markdown("---")
 st.caption("⚠️ **Medical Disclaimer:** This AI tool is for educational purposes only. Always consult a qualified dermatologist for medical diagnosis.")
+st.caption("🤗 Model hosted on [Hugging Face Hub](https://huggingface.co/mahnoor-2722/skin-lesion-classifier) | 💻 Source code on [GitHub](https://github.com/mahnoor-2722/skin-lesion-classification)")
